@@ -1,0 +1,20 @@
+* Download Data
+Easy enough, it's just big!
+** 11gb compressed, 20gb uncompressed
+
+* Load the data into database
+** Started writing python program to go through each line of csv
+gzip.open exists which I tried to use to not have to decompress data
+WAAAAAY too slow: didn't even know how long it would take or number of lines in dataset
+*** I wasn't even *doing* anything with the lines... just reading them!
+** Used postgresql to load the CSV file directly
+Turns out, import was way faster (still took like 5 min, but it finished)
+I think the schema might be way too big though...
+** Some initial stats on data
+*** Number of rows: 160 million! (160353104)
+*** Number of users
+Ok so here's a problem: the select count(distinct user_id) took like 20 min.
+What I really need is a way to map these gigantic user id hashes to numbers that can fit in a byte or two (which should totally be possible)
+Turns out what I really need are column indices!
+
+* Minimum timestamp was 2022-04-01 05:44:10.315-07

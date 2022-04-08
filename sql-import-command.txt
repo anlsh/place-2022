@@ -1,0 +1,8 @@
+create table place2022 (timestamp TIMESTAMP, user_id VARCHAR(256), pixel_color CHAR(7), coordinate VARCHAR(32));
+\COPY place2022(timestamp, user_id, pixel_color, coordinate) from '/tmp/foobar' delimiter ',' csv header;
+
+Updated
+create table place2022 (timestamp TIMESTAMP(3) with time zone, user_id char(88), pixel_color CHAR(7), coordinate VARCHAR(19));
+(same populate command as above)
+
+create index idx_timestamp on place2022(timestamp);
