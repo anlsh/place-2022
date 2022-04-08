@@ -60,6 +60,21 @@ parser.add_argument('--dumpops', required=False, default=None, type=bool)
 
 args = parser.parse_args()
 
+class PlaceOp:
+    def __init__(self, csvline):
+        parts = line.split(",")
+
+        self.toff = int(parts[0])
+        self.palette_i = int(parts[1])
+        self.censor = (parts[2] == "t")
+        self.x0 = int(parts[3])
+        self.y0 = int(parts[4])
+        self.x1 = int(parts[5])
+        self.y1 = int(parts[6])
+        # Unused for now because oh my god
+        # self.uint_id = int(parts[7])
+        self.seqno = int(parts[8])
+
 if __name__ == "__main__":
 
     # Have to do some argument validation...
@@ -87,40 +102,28 @@ if __name__ == "__main__":
             im = Image.fromarray(arr)
             im.save(dumpdir_path / f"{prefix}.png")
             if args.dumpops:
-                with open(dumpdir_path / f"{prefix}.ops", "w+") as f:
-                    for line in curr_ops:
-                        f.write(f"{line}\n")
+                with open(dumpdir_path / f"{prefix}.ops", "rb") as f:
+                    for op in curr_ops:
+                        f.write(op.bin())
                 curr_ops.clear()
 
-
-        toff = palette_i = censor = x0 = y0 = x1 = y1 = seqno = None
-
+        op = None
         for line in tqdm(f):
-            parts = line.split(",")
+            op = PlaceOp(line)
 
-            toff = int(parts[0])
-            palette_i = int(parts[1])
-            censorship = (parts[2] == "t")
-            x0 = int(parts[3])
-            y0 = int(parts[4])
-            x1 = int(parts[5])
-            y1 = int(parts[6])
-            # uint_id = int(parts[7])
-            seqno = int(parts[8])
-
-            if toff >= args.target_millis:
+            if op.toff >= args.target_millis:
                 break
-            if args.dumpdir and (toff / args.dump_millis > dump_i):
+            if args.dumpdir and (op.toff / args.dump_millis > dump_i):
                 dump_for_timestamp(
                     arr,
-                    toff // args.dump_millis * args.dump_millis,
+                    op.toff // args.dump_millis * args.dump_millis,
                     curr_ops
                 )
-                dump_i = math.ceil(toff / args.dump_millis)
+                dump_i = math.ceil(op.toff / args.dump_millis)
 
             if args.dumpops:
-                curr_ops.append(line)
-            arr[y0, x0] = PALETTE[palette_i - 1]
+                curr_ops.append(op)
+            arr[op.y0, op.x0] = PALETTE[op.palette_i - 1]
 
         if args.dumplast:
-            dump_for_timestamp(arr, toff + 1, curr_ops)
+            dump_for_timestamp(arr, op.toff + 1, curr_ops)
