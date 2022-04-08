@@ -1,1 +1,4 @@
 tqdm
+psycopg2
+pillow
+numpy
