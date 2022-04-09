@@ -101,7 +101,8 @@ def main(*, opstream, dumpdir, target_s, dump_s, dumplast, dumpops, dumpims, **k
             im.save(dumpdir / f"final.png")
         if dumpops:
             flushops("final", False)
-    ops_file.close()
+    if ops_file is not None:
+        ops_file.close()
 
 #############################################
 # Begin the start of the interactive script #
