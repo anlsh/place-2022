@@ -18,3 +18,7 @@ What I really need is a way to map these gigantic user id hashes to numbers that
 Turns out what I really need are column indices!
 
 * Minimum timestamp was 2022-04-01 05:44:10.315-07
+
+* The binary files: you can check them with hexdump
+** hexdump -C -s 8 -n 32 /tmp/dump/final.ops
+** Metadata and the first two things are correct!

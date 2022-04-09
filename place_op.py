@@ -39,7 +39,6 @@ class PlaceOp:
         old_palette_i = self.old_palette_i == other.old_palette_i
         uint_id = self.uint_id == other.uint_id
 
-        # print(toff, censor, c0, r0, c1, r1, palette_i, old_palette_i, uint_id)
         return toff and censor and c0 and r0 and c1 and r1 and palette_i and old_palette_i and uint_id
 
     def to_binary(self,):
@@ -87,15 +86,19 @@ class PlaceOp:
         return encoding
 
     @classmethod
-    def from_binary(cls, bytearr):
-        toff = int.from_bytes(bytearr[:4], byteorder = 'big') & (~0x80000000)
-        censor = bool(bytearr[0] & 0x80)
-        c0 = int.from_bytes(bytearr[4:6], byteorder = 'big')
-        r0 = int.from_bytes(bytearr[6:8], byteorder = 'big')
-        c1 = (bytearr[8] << 4) + (bytearr[9] >> 4)
-        r1 = ((bytearr[9] & 0xF) << 8) + bytearr[10]
-        palette_i = int(bytearr[11])
-        old_palette_i = int(bytearr[12])
-        uint_id = int.from_bytes(bytearr[13:], byteorder = 'big')
+    def from_binary_stream(cls, stream):
+        # Will advance the stream by reading 16 bytes
+        toff_bytes = stream.read(4)
+        toff = int.from_bytes(toff_bytes, byteorder = 'big') & (~0x80000000)
+        censor = bool(toff_bytes[0] & 0x80)
+        c0 = int.from_bytes(stream.read(2), byteorder = 'big')
+        r0 = int.from_bytes(stream.read(2), byteorder = 'big')
+
+        cc_bytes = stream.read(3) # cc for censor coordinates
+        c1 = (cc_bytes[0] << 4) + (cc_bytes[1] >> 4)
+        r1 = ((cc_bytes[1] & 0xF) << 8) + cc_bytes[2]
+        palette_i = int(stream.read(1))
+        old_palette_i = int(stream.read(1))
+        uint_id = int.from_bytes(stream.read(4), byteorder = 'big')
 
         return cls(toff, censor, c0, r0, c1, r1, palette_i, old_palette_i, uint_id)
