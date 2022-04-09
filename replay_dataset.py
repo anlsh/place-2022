@@ -72,9 +72,6 @@ parser.add_argument('--dumpops', required=False, default=True, type=bool,
                     help="When true (default), dump ops")
 parser.add_argument('--dumpims', required=False, default=True, type=bool,
                     help="When true (default),  dump pngs (default true)")
-parser.add_argument('--check_encoding', required=False, default=False, type=bool,
-                    help="""Whether to verify the decoding-encoding operation
-                    with each operation. Default false, use only for testing purposes""")
 
 def main(*, csv, dumpdir, target_s, dump_s, dumplast, dumpops, dumpims, check_encoding):
 
@@ -97,16 +94,6 @@ def main(*, csv, dumpdir, target_s, dump_s, dumplast, dumpops, dumpims, check_en
             if arr is not None:
                 im = Image.fromarray(arr)
                 im.save(dumpdir / f"{prefix}.png")
-            # if ops_spec:
-            #     first_seqno, ops = ops_spec
-            #     with open(dumpdir / f"{prefix}.ops", "wb") as f:
-            #         # Write the number of ops in the file
-            #         f.write(len(curr_ops).to_bytes(4, byteorder='big'))
-            #         # Write the sequence number of the first op in the file
-            #         f.write(first_seqno.to_bytes(4, byteorder='big'))
-            #         for op in ops:
-            #             f.write(op.to_binary())
-
 
         arr = np.full((SIDE_LENGTH, SIDE_LENGTH, 3), 0xFF, dtype=np.uint8)
         palette_arr = np.full((SIDE_LENGTH, SIDE_LENGTH), 31, dtype=np.uint8)
@@ -128,6 +115,9 @@ def main(*, csv, dumpdir, target_s, dump_s, dumplast, dumpops, dumpims, check_en
 
         def flushops(prefix, create_new=True):
             nonlocal ops_file
+            nonlocal curr_dump_first_seqno
+            nonlocal curr_dump_n_ops
+
             ops_file.seek(0)
             ops_file.write(curr_dump_n_ops.to_bytes(4, byteorder='big'))
             ops_file.write(curr_dump_first_seqno.to_bytes(4, byteorder='big'))
@@ -146,11 +136,6 @@ def main(*, csv, dumpdir, target_s, dump_s, dumplast, dumpops, dumpims, check_en
             seqno += 1
             op = PlaceOp.from_csv_and_palette_arr(line, palette_arr)
             encoded_op = op.to_binary()
-
-            if check_encoding:
-                decoded_op = PlaceOp.from_binary(encoded_op)
-                if op != decoded_op:
-                    raise RuntimeError(f"Coding error:\nOp {vars(op)}\nEncoded as {encoded_op}\ndecoded as {vars(decoded_op)}")
 
             if op.toff >= target_s * 1000:
                 break
