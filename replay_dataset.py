@@ -29,7 +29,6 @@ def main(*, opstream, dumpdir, target_s, dump_s, dumplast, dumpops, dumpims, **k
             im.save(dumpdir / f"{prefix}.png")
 
     arr = np.full((SIDE_LENGTH, SIDE_LENGTH, 3), 0xFF, dtype=np.uint8)
-    palette_arr = np.full((SIDE_LENGTH, SIDE_LENGTH), 31, dtype=np.uint8)
 
     seqno = 0
 
@@ -89,8 +88,12 @@ def main(*, opstream, dumpdir, target_s, dump_s, dumplast, dumpops, dumpims, **k
             ops_file.write(op.to_binary())
             curr_dump_n_ops += 1
 
-        palette_arr[op.r0, op.c0] = op.palette_i - 1
-        arr[op.r0, op.c0] = PALETTE[op.palette_i - 1]
+        if not op.censor:
+            arr[op.r0, op.c0] = PALETTE[op.palette_i - 1]
+        else:
+            for r in range(min(op.r0, op.r1), max(op.r0, op.r1) + 1):
+                for c in range(min(op.c0, op.c1), max(op.c0, op.c1) + 1):
+                    arr[r, c] = PALETTE[op.palette_i - 1]
 
     if dumplast:
         if dumpims:
@@ -126,7 +129,7 @@ parser.add_argument('--dump_s', required=False, default=None, type=int,
 parser.add_argument('--dumplast', required=False, default=True, type=bool,
                     help="""When true (default), dump unexported png/ops files with
                     filename 'final' upon program termination.""")
-parser.add_argument('--dumpops', required=False, default=True, type=bool,
+parser.add_argument('--dumpops', required=False, default=False, type=bool,
                     help="When true (default), dump ops")
 parser.add_argument('--dumpims', required=False, default=True, type=bool,
                     help="When true (default),  dump pngs (default true)")
