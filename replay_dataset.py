@@ -80,7 +80,7 @@ args = parser.parse_args()
 
 if __name__ == "__main__":
     # Have to do some argument validation...
-    if args.dump_s <= 0:
+    if args.dump_s is not None and args.dump_s <= 0:
         raise RuntimeError("dump_s must be > 0")
     elif not (args.dumpops or args.dumpims):
         raise RuntimeError("Told to dump neither ops nor pngs: waste of time")
@@ -140,21 +140,21 @@ if __name__ == "__main__":
 
             if op.toff >= args.target_s * 1000:
                 break
-            if (op.toff / (args.dump_s * 1000) > dump_i):
+            if args.dump_s is not None:
+                if (op.toff / (args.dump_s * 1000) > dump_i):
+                    next_dump_i = math.ceil(op.toff / (1000 * args.dump_s))
 
-                next_dump_i = math.ceil(op.toff / (1000 * args.dump_s))
-
-                ops_spec = None
-                if args.dumpops:
-                    ops_spec = first_seqno_of_dump, curr_ops
-                dump(
-                    "{:06d}".format(dump_i * args.dump_s),
-                    arr if args.dumpims else None,
-                    ops_spec
-                )
-                first_seqno_of_dump = seqno
-                curr_ops.clear()
-                dump_i = next_dump_i
+                    ops_spec = None
+                    if args.dumpops:
+                        ops_spec = first_seqno_of_dump, curr_ops
+                    dump(
+                        "{:06d}".format(dump_i * args.dump_s),
+                        arr if args.dumpims else None,
+                        ops_spec
+                    )
+                    first_seqno_of_dump = seqno
+                    curr_ops.clear()
+                    dump_i = next_dump_i
 
             if args.dumpops:
                 curr_ops.append(op)
