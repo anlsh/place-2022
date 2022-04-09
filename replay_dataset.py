@@ -76,6 +76,115 @@ parser.add_argument('--check_encoding', required=False, default=False, type=bool
                     help="""Whether to verify the decoding-encoding operation
                     with each operation. Default false, use only for testing purposes""")
 
+def main(*, csv, dumpdir, target_s, dump_s, dumplast, dumpops, dumpims, check_encoding):
+
+    os.makedirs(dumpdir, exist_ok=True)
+    dumpdir = Path(dumpdir)
+
+    metadata = {}
+
+    with open(csv) as f:
+        # Garbage line describing the "format" which is for losers
+        f.readline()
+
+        def dump(prefix, arr):
+            """
+            arr describes a png to dump.
+            ops_spec[1] should be an iterable of binary
+            ops_spec[0] should be the sequence number for the first op in ops_spec[1]
+            ops_spec[1] should be an iterable of PlaceOps to dump
+            """
+            if arr is not None:
+                im = Image.fromarray(arr)
+                im.save(dumpdir / f"{prefix}.png")
+            # if ops_spec:
+            #     first_seqno, ops = ops_spec
+            #     with open(dumpdir / f"{prefix}.ops", "wb") as f:
+            #         # Write the number of ops in the file
+            #         f.write(len(curr_ops).to_bytes(4, byteorder='big'))
+            #         # Write the sequence number of the first op in the file
+            #         f.write(first_seqno.to_bytes(4, byteorder='big'))
+            #         for op in ops:
+            #             f.write(op.to_binary())
+
+
+        arr = np.full((SIDE_LENGTH, SIDE_LENGTH, 3), 0xFF, dtype=np.uint8)
+        palette_arr = np.full((SIDE_LENGTH, SIDE_LENGTH), 31, dtype=np.uint8)
+
+        seqno = 0
+
+        dump_i = 1
+        curr_dump_first_seqno = 1
+        curr_dump_n_ops = 0
+
+        TMP_OPS_FILENAME = dumpdir / f"tmp.ops"
+        ops_file = None
+        if dumpops:
+            with open(TMP_OPS_FILENAME, "w+") as _:
+                pass
+            ops_file = open(TMP_OPS_FILENAME, "rb+")
+            ops_file.write((0).to_bytes(4, byteorder='big'))
+            ops_file.write((0).to_bytes(4, byteorder='big'))
+
+        def flushops(prefix, create_new=True):
+            nonlocal ops_file
+            ops_file.seek(0)
+            ops_file.write(curr_dump_n_ops.to_bytes(4, byteorder='big'))
+            ops_file.write(curr_dump_first_seqno.to_bytes(4, byteorder='big'))
+
+            ops_file.close()
+            os.rename(TMP_OPS_FILENAME, dumpdir / f"{prefix}.ops")
+
+            if create_new:
+                with open(TMP_OPS_FILENAME, "w+") as _:
+                    pass
+                ops_file = open(TMP_OPS_FILENAME, "rb+")
+                ops_file.write((0).to_bytes(4, byteorder='big'))
+                ops_file.write((0).to_bytes(4, byteorder='big'))
+
+        for line in tqdm(f):
+            seqno += 1
+            op = PlaceOp.from_csv_and_palette_arr(line, palette_arr)
+            encoded_op = op.to_binary()
+
+            if check_encoding:
+                decoded_op = PlaceOp.from_binary(encoded_op)
+                if op != decoded_op:
+                    raise RuntimeError(f"Coding error:\nOp {vars(op)}\nEncoded as {encoded_op}\ndecoded as {vars(decoded_op)}")
+
+            if op.toff >= target_s * 1000:
+                break
+            if dump_s is not None:
+                if (op.toff / (dump_s * 1000) > dump_i):
+                    next_dump_i = math.ceil(op.toff / (1000 * dump_s))
+
+                    prefix = "{:06d}".format(dump_i * dump_s)
+                    if dumpims:
+                        im = Image.fromarray(arr)
+                        im.save(dumpdir / f"{prefix}.png")
+                    if dumpops:
+                        flushops(prefix)
+                        curr_dump_first_seqno = seqno
+                        curr_dump_n_ops = 0
+
+                    dump_i = next_dump_i
+
+            if dumpops:
+                ops_file.write(op.to_binary())
+                curr_dump_n_ops += 1
+
+            palette_arr[op.r0, op.c0] = op.palette_i - 1
+            arr[op.r0, op.c0] = PALETTE[op.palette_i - 1]
+
+        if dumplast:
+            if dumpims:
+                im = Image.fromarray(arr)
+                im.save(dumpdir / f"final.png")
+            if dumpops:
+                flushops("final", False)
+        ops_file.close()
+
+
 args = parser.parse_args()
 
 if __name__ == "__main__":
@@ -90,84 +199,4 @@ if __name__ == "__main__":
     if not args.dumplast:
         print("[WARNING]: Asked not to dump final state. Are you sure?")
 
-    os.makedirs(args.dumpdir, exist_ok=True)
-    dumpdir = Path(args.dumpdir)
-
-    metadata = {}
-
-    with open(args.csv) as f:
-        # Garbage line describing the "format" which is for losers
-        f.readline()
-
-        def dump(prefix, arr, ops_spec):
-            """
-            arr describes a png to dump.
-            ops_spec[1] should be an iterable of binary
-            ops_spec[0] should be the sequence number for the first op in ops_spec[1]
-            ops_spec[1] should be an iterable of PlaceOps to dump
-            """
-            if arr is not None:
-                im = Image.fromarray(arr)
-                im.save(dumpdir / f"{prefix}.png")
-            if ops_spec:
-                first_seqno, ops = ops_spec
-                with open(dumpdir / f"{prefix}.ops", "wb") as f:
-                    # Write the number of ops in the file
-                    f.write(len(curr_ops).to_bytes(4, byteorder='big'))
-                    # Write the sequence number of the first op in the file
-                    f.write(first_seqno.to_bytes(4, byteorder='big'))
-                    for op in ops:
-                        f.write(op.to_binary())
-
-
-        arr = np.full((SIDE_LENGTH, SIDE_LENGTH, 3), 0xFF, dtype=np.uint8)
-        palette_arr = np.full((SIDE_LENGTH, SIDE_LENGTH), 31, dtype=np.uint8)
-
-        dump_i = 1
-        seqno = 0
-        first_seqno_of_dump = 1
-        curr_ops = deque()
-
-        for line in tqdm(f):
-            seqno += 1
-            op = PlaceOp.from_csv_and_palette_arr(line, palette_arr)
-            encoded_op = op.to_binary()
-
-            if args.check_encoding:
-                decoded_op = PlaceOp.from_binary(encoded_op)
-                if op != decoded_op:
-                    raise RuntimeError(f"Coding error:\nOp {vars(op)}\nEncoded as {encoded_op}\ndecoded as {vars(decoded_op)}")
-
-            if op.toff >= args.target_s * 1000:
-                break
-            if args.dump_s is not None:
-                if (op.toff / (args.dump_s * 1000) > dump_i):
-                    next_dump_i = math.ceil(op.toff / (1000 * args.dump_s))
-
-                    ops_spec = None
-                    if args.dumpops:
-                        ops_spec = first_seqno_of_dump, curr_ops
-                    dump(
-                        "{:06d}".format(dump_i * args.dump_s),
-                        arr if args.dumpims else None,
-                        ops_spec
-                    )
-                    first_seqno_of_dump = seqno
-                    curr_ops.clear()
-                    dump_i = next_dump_i
-
-            if args.dumpops:
-                curr_ops.append(op)
-
-            palette_arr[op.r0, op.c0] = op.palette_i - 1
-            arr[op.r0, op.c0] = PALETTE[op.palette_i - 1]
-
-        if args.dumplast:
-            ops_spec = None
-            if args.dumpops:
-                ops_spec = first_seqno_of_dump, curr_ops
-            dump(
-                "final",
-                arr if args.dumpops else None,
-                ops_spec
-            )
+    main(**vars(args))
