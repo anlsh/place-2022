@@ -1,6 +1,9 @@
 use clap::{ArgGroup, Parser};
 use std::path::Path;
 
+mod op_iterators;
+mod place_op;
+
 /// Simple program to greet a person
 #[derive(Parser)]
 #[clap(group(ArgGroup::new("spec").required(true).args(&["ccsv", "bin"])))]
@@ -55,4 +58,6 @@ fn main() {
     } else if args.target_s.is_none() && !dumplast {
         panic!("Not given target_s, but not told to dump last either. Sad!");
     }
+
+    // let foo = place_op::PlaceOp { toff: 0, censor: false, r0: 0, c0: 0, r1: 0, c1: 0, palette_i: 0, old_palette_i:0 , uint_id: 0 };
 }
