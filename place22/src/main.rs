@@ -1,4 +1,5 @@
 use clap::{ArgGroup, Parser};
+use std::path::Path;
 
 /// Simple program to greet a person
 #[derive(Parser)]
@@ -30,7 +31,7 @@ struct Args {
     #[clap(long)]
     dumplast: Option<bool>,
 
-    /// When true (default), dump operations
+    /// When true (default false), dump operations
     #[clap(long)]
     dumpops: Option<bool>,
 
@@ -41,4 +42,17 @@ struct Args {
 
 fn main() {
     let args = Args::parse();
+
+    let dumpdir = Path::new(&args.dumpdir);
+    std::fs::create_dir_all(dumpdir).expect("Could not create dump directory");
+
+    let dumplast = args.dumplast.unwrap_or(true);
+    let dumpops = args.dumpops.unwrap_or(false);
+    let dumpims = args.dumpims.unwrap_or(true);
+
+    if !(dumpops || dumpims) {
+        panic!("Told to dump neither ops nor images! Terrible idea");
+    } else if args.target_s.is_none() && !dumplast {
+        panic!("Not given target_s, but not told to dump last either. Sad!");
+    }
 }
