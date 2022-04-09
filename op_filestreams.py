@@ -17,11 +17,13 @@ class ReducedCSVOpStream:
 
 class BinOpStream:
     # Meant to read my custom binary format
-    def __init__(filename,):
+    def __init__(self,filename,):
         self.filename = filename
     def __iter__(self,):
         with open(self.filename, "rb") as f:
             n_ops = int.from_bytes(f.read(4), byteorder = 'big')
+            # The next four bytes contain the starting seqno
+            f.read(4)
 
             for _ in range(n_ops):
                 yield PlaceOp.from_binary_stream(f)

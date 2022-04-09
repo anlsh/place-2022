@@ -97,8 +97,8 @@ class PlaceOp:
         cc_bytes = stream.read(3) # cc for censor coordinates
         c1 = (cc_bytes[0] << 4) + (cc_bytes[1] >> 4)
         r1 = ((cc_bytes[1] & 0xF) << 8) + cc_bytes[2]
-        palette_i = int(stream.read(1))
-        old_palette_i = int(stream.read(1))
-        uint_id = int.from_bytes(stream.read(4), byteorder = 'big')
+        palette_i = int.from_bytes(stream.read(1), byteorder = 'big')
+        old_palette_i = int.from_bytes(stream.read(1), byteorder = 'big')
+        uint_id = int.from_bytes(stream.read(3), byteorder = 'big')
 
         return cls(toff, censor, c0, r0, c1, r1, palette_i, old_palette_i, uint_id)
