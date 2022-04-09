@@ -1,3 +1,7 @@
 /raw-data/
 venv*
 cpp/bin/
+rs/debug/
+rs/target/
+Cargo.lock
+**/*.rs.bk
