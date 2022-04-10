@@ -87,7 +87,8 @@ pub fn dump(
     dump_s: Option<u64>,
     dumplast: bool,
     dumpops: bool,
-    dumpims: bool
+    dumpims: bool,
+    checkencoding: bool
 ) {
     let mut pngbuf = [0xFF; IMAGE_SIZE * PNG_PIXEL_BYTES];
     // let mut palettebuf = [31; IMAGE_SIZE];
@@ -105,7 +106,17 @@ pub fn dump(
         true => Some(new_tmpops_writer(&tmp_ops_filename))
     };
 
-    for op in opstream {
+    for op in tqdm_rs::Tqdm::new(opstream) {
+
+        if checkencoding {
+            let encoded_op = op_to_binary(&op);
+            let decoded_op = buffer_to_op(&encoded_op);
+            if op != decoded_op {
+                let errstr = format!("Coding error:\n Original: {:?}\nDecoded: {:?}\nBinary: {:?}", op, decoded_op, encoded_op);
+                panic!("{}", errstr);
+            }
+        }
+
         seqno += 1;
 
         // Can't use "match" here because I need to break from the look

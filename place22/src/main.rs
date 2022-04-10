@@ -51,6 +51,11 @@ struct Args {
     /// When true (default), dump png files
     #[clap(long)]
     dumpims: Option<bool>,
+
+    /// When true (default false), verify the binary encoding on every operation
+    /// by checking that x = decode(encode(x))
+    #[clap(long)]
+    checkencoding: Option<bool>
 }
 
 fn main() {
@@ -62,6 +67,7 @@ fn main() {
     let dumplast = args.dumplast.unwrap_or(true);
     let dumpops = args.dumpops.unwrap_or(false);
     let dumpims = args.dumpims.unwrap_or(true);
+    let checkencoding = args.checkencoding.unwrap_or(false);
 
     if !(dumpops || dumpims) {
         panic!("Told to dump neither ops nor images! Terrible idea");
@@ -71,6 +77,9 @@ fn main() {
 
     if !dumplast {
         print!("WARNING: Told not to dump final state, which is usually useful");
+    }
+    if checkencoding {
+        print!("WARNING: Encoding checks are enabled! This will slow things down a lot!");
     }
 
     let mut op_iterator: Option<Box<dyn Iterator<Item = place_op::PlaceOp>>> = None;
@@ -85,6 +94,6 @@ fn main() {
 
     match op_iterator {
         None => panic!("Somehow, we haven't made an iterator? fucking clap"),
-        Some(i) => dump::dump(i, dumpdir, args.target_s, args.dump_s, dumplast, dumpops, dumpims)
+        Some(i) => dump::dump(i, dumpdir, args.target_s, args.dump_s, dumplast, dumpops, dumpims, checkencoding)
     };
 }
