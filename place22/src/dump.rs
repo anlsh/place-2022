@@ -56,32 +56,27 @@ fn new_tmpops_writer(
 
 fn flush_ops_file_and_writer(
     tmpfile: &Path, dst: &Path,
-    writer: &mut wwrapper,
+    writer: &mut BufWriter<File>,
     num_ops: u32, starting_seqno: u32,
 ) {
-    match &mut writer.writer {
-        None => (),
-        Some(writer) => {
-            // Renames tmpfile to dst and writes the header
-            writer.seek(std::io::SeekFrom::Start(0)).expect("Could not seek 0");
+    // Renames tmpfile to dst and writes the header
+    writer.seek(std::io::SeekFrom::Start(0)).expect("Could not seek 0");
 
-            // Man I should really learn to use the byteorder crate
-            let mut header = [0; 8];
-            header[0] =  ((num_ops & 0xFF000000) >> 24) as u8;
-            header[1] =  ((num_ops & 0x00FF0000) >> 16) as u8;
-            header[2] =  ((num_ops & 0x0000FF00) >> 8) as u8;
-            header[3] =  ((num_ops & 0x000000FF) >> 0) as u8;
+    // Man I should really learn to use the byteorder crate
+    let mut header = [0; 8];
+    header[0] =  ((num_ops & 0xFF000000) >> 24) as u8;
+    header[1] =  ((num_ops & 0x00FF0000) >> 16) as u8;
+    header[2] =  ((num_ops & 0x0000FF00) >> 8) as u8;
+    header[3] =  ((num_ops & 0x000000FF) >> 0) as u8;
 
-            header[4] =  ((starting_seqno & 0xFF000000) >> 24) as u8;
-            header[5] =  ((starting_seqno & 0x00FF0000) >> 16) as u8;
-            header[6] =  ((starting_seqno & 0x0000FF00) >> 8) as u8;
-            header[7] =  ((starting_seqno & 0x000000FF) >> 0) as u8;
+    header[4] =  ((starting_seqno & 0xFF000000) >> 24) as u8;
+    header[5] =  ((starting_seqno & 0x00FF0000) >> 16) as u8;
+    header[6] =  ((starting_seqno & 0x0000FF00) >> 8) as u8;
+    header[7] =  ((starting_seqno & 0x000000FF) >> 0) as u8;
 
-            writer.write_all(&header).expect("Could not write header");
+    writer.write_all(&header).expect("Could not write header");
 
-            std::fs::rename(tmpfile, dst).expect("Could not move tmpfile to dst");
-        }
-    }
+    std::fs::rename(tmpfile, dst).expect("Could not move tmpfile to dst");
 }
 
 struct wwrapper {
@@ -112,12 +107,6 @@ pub fn dump(
     if dumpops {
         ops_writer.writer = Some(new_tmpops_writer(&tmp_ops_filename));
     }
-    //     wwrapper {
-    //     writer: match dumpops {
-    //         false => None,
-    //         true => Some()
-    //     }
-    // };
 
     for op in opstream {
         seqno += 1;
@@ -145,13 +134,16 @@ pub fn dump(
                     if dumpims {
                         dump_png_to_file(&pngbuf, dumpdir.join(png_name).as_path());
                     }
-                    if dumpops {
-                        flush_ops_file_and_writer(
-                            &tmp_ops_filename, dumpdir.join(ops_name).as_path(),
-                            &mut ops_writer, curr_dump_n_ops, curr_dump_first_seqno);
-                        ops_writer.writer = Some(new_tmpops_writer(&tmp_ops_filename));
-                        curr_dump_first_seqno = 0;
-                        curr_dump_n_ops = 0;
+                    match ops_writer.writer {
+                        None => (),
+                        Some(ref mut writer) => {
+                            flush_ops_file_and_writer(
+                                &tmp_ops_filename, dumpdir.join(ops_name).as_path(),
+                                writer, curr_dump_n_ops, curr_dump_first_seqno);
+                            ops_writer.writer = Some(new_tmpops_writer(&tmp_ops_filename));
+                            curr_dump_first_seqno = 0;
+                            curr_dump_n_ops = 0;
+                        }
                     }
                     dump_i = next_dump_i;
                 }
