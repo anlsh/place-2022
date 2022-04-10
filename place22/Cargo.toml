@@ -8,4 +8,3 @@ edition = "2021"
 [dependencies]
 clap = { version = "3.1.8", features = ["derive"] }
 png = "0.17.5"
-tqdm-rs = "0.1.1"
