@@ -45,14 +45,13 @@ fn dump_png_to_file(pngbuf: &[u8; IMAGE_SIZE * PNG_PIXEL_BYTES], path: &Path) {
 
 fn new_tmpops_writer(
     tmpfile: &Path,
-    writer: &mut wwrapper,
-) {
+) -> BufWriter<File> {
     // Creates the tmpfile, writes a placeholder header, and returns a writer
     let mut new_writer = BufWriter::new(File::create(tmpfile).expect("Could not create temp ops file"));
     // Write placeholder bytes for the num_ops and starting_seqno, since
     // we don't know the first yet and the second is actually impossible to know
     new_writer.write_all(&[0; BINFILE_HEADER_BYTES]).expect("Could not write placeholder bytes to tmp ops file");
-    writer.writer = Some(new_writer);
+    return new_writer;
 }
 
 fn flush_ops_file_and_writer(
@@ -111,7 +110,7 @@ pub fn dump(
     // Oh, how I long for lexical closures :/
     let mut ops_writer = wwrapper { writer: None };
     if dumpops {
-        new_tmpops_writer(&tmp_ops_filename, &mut ops_writer);
+        ops_writer.writer = Some(new_tmpops_writer(&tmp_ops_filename));
     }
     //     wwrapper {
     //     writer: match dumpops {
@@ -150,7 +149,7 @@ pub fn dump(
                         flush_ops_file_and_writer(
                             &tmp_ops_filename, dumpdir.join(ops_name).as_path(),
                             &mut ops_writer, curr_dump_n_ops, curr_dump_first_seqno);
-                        new_tmpops_writer(&tmp_ops_filename, &mut ops_writer);
+                        ops_writer.writer = Some(new_tmpops_writer(&tmp_ops_filename));
                         curr_dump_first_seqno = 0;
                         curr_dump_n_ops = 0;
                     }
@@ -165,12 +164,5 @@ pub fn dump(
                 writer.write_all(&op_to_binary(&op)).expect("Could not write op to binary!");
             }
         }
-        // ops_writer.map(|mut ops_writer| {
-        //     ops_writer.write_all(&op_to_binary(&op)).expect("Could not write op to binary!");
-        // });
-        // match ops_writer {
-        //     None => (),
-        //     Some(i) => ()
-        // }
     }
 }
