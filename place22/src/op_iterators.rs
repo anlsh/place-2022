@@ -1,6 +1,5 @@
 use std::iter::Iterator;
 
-use std::io::{self, Write};
 use crate::place_op::{PlaceOp, buffer_to_op};
 use std::path::Path;
 use std::io::Read;

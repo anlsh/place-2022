@@ -1,17 +1,20 @@
 use clap::{ArgGroup, Parser};
 use op_iterators::binary_op_stream_from_file;
+use rawdata_op_iterator::rawdata_op_stream_from_file;
 use std::path::Path;
 use std::iter::Iterator;
 
+use chrono::{DateTime, FixedOffset};
 mod binary_format;
 mod op_iterators;
 mod place_op;
 mod dump;
 mod constants;
+mod rawdata_op_iterator;
 
 /// Simple program to greet a person
 #[derive(Parser)]
-#[clap(group(ArgGroup::new("spec").required(true).args(&["ccsv", "bin"])))]
+#[clap(group(ArgGroup::new("spec").required(true).args(&["csv", "bin"])))]
 struct Args {
     /// Directory to dump files to
     #[clap(short, long, required=true)]
@@ -19,7 +22,7 @@ struct Args {
 
     /// Path to the custom-formatted CSV
     #[clap(short, long)]
-    ccsv: Option<String>,
+    csv: Option<String>,
 
     /// Path to the custom-formatted binary file
     #[clap(short, long)]
@@ -59,6 +62,17 @@ struct Args {
 }
 
 fn main() {
+
+    let k = DateTime::parse_from_str("2022-04-03 17:38:20.001 UTC",
+                                     "%Y-%m-%d %H:%M:%S%.f %Z");
+    match k {
+        Ok(_) => (),
+        Err(error)=>  {
+            println!("Proble was {}", error);
+            panic!("");
+        }
+    }
+
     let args = Args::parse();
 
     let dumpdir = Path::new(&args.dumpdir);
@@ -89,8 +103,9 @@ fn main() {
             binary_op_stream_from_file(Path::new(&args.bin.unwrap()))
         ));
 
-    } else if args.ccsv.is_some() {
-        panic!("Ok, unfortunately the ccsv arg is unimplemented for now");
+    } else if args.csv.is_some() {
+        // panic!("Ok, unfortunately the csv arg is unimplemented for now");
+        op_iterator = Some(Box::new(rawdata_op_stream_from_file(Path::new(&args.csv.unwrap()))));
     }
 
     match op_iterator {
