@@ -1,5 +1,6 @@
 use crate::binary_format::BINFILE_OP_SIZE_IN_BYTES;
 
+#[derive(Debug)]
 pub struct PlaceOp {
     pub toff: u32,
     pub censor: bool,

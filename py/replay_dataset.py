@@ -17,17 +17,6 @@ def main(*, opstream, dumpdir, target_s, dump_s, dumplast, dumpops, dumpims, **k
     os.makedirs(dumpdir, exist_ok=True)
     dumpdir = Path(dumpdir)
 
-    def dump(prefix, arr):
-        """
-        arr describes a png to dump.
-        ops_spec[1] should be an iterable of binary
-        ops_spec[0] should be the sequence number for the first op in ops_spec[1]
-        ops_spec[1] should be an iterable of PlaceOps to dump
-        """
-        if arr is not None:
-            im = Image.fromarray(arr)
-            im.save(dumpdir / f"{prefix}.png")
-
     arr = np.full((SIDE_LENGTH, SIDE_LENGTH, 3), 0xFF, dtype=np.uint8)
 
     seqno = 0

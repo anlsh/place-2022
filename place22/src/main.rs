@@ -1,10 +1,13 @@
 use clap::{ArgGroup, Parser};
 use op_iterators::binary_op_stream_from_file;
 use std::path::Path;
+use std::iter::Iterator;
 
 mod binary_format;
 mod op_iterators;
 mod place_op;
+mod dump;
+mod constants;
 
 /// Simple program to greet a person
 #[derive(Parser)]
@@ -22,6 +25,11 @@ struct Args {
     #[clap(short, long)]
     bin: Option<String>,
 
+    /// Terminate upon reaching this time (in seconds), or at the end if not
+    /// specified
+    #[clap(short, long)]
+    target_s: Option<u64>,
+
     /// If specified, dump png/ops files for every window
     /// of dump_s seconds for which there is data in the dataset.
 
@@ -29,7 +37,7 @@ struct Args {
     /// last operation *before* that time. {time}.ops files will be
     /// the sequence of ops in the time range [time-1, time)
     #[clap(long)]
-    target_s: Option<u64>,
+    dump_s: Option<u64>,
 
     /// When true (default), dump unexported png/ops files with
     /// filename 'final' upon program termination.
@@ -61,9 +69,22 @@ fn main() {
         panic!("Not given target_s, but not told to dump last either. Sad!");
     }
 
-    if args.bin.is_some() {
-        binary_op_stream_from_file(Path::new(&args.bin.unwrap()));
+    if !dumplast {
+        print!("WARNING: Told not to dump final state, which is usually useful");
     }
 
-    // let foo = place_op::PlaceOp { toff: 0, censor: false, r0: 0, c0: 0, r1: 0, c1: 0, palette_i: 0, old_palette_i:0 , uint_id: 0 };
+    let mut op_iterator: Option<Box<dyn Iterator<Item = place_op::PlaceOp>>> = None;
+
+    if args.bin.is_some() {
+        op_iterator = Some(Box::new(
+            binary_op_stream_from_file(Path::new(&args.bin.unwrap()))
+        ));
+    } else if args.ccsv.is_some() {
+        panic!("Ok, unfortunately the ccsv arg is unimplemented for now");
+    }
+
+    match op_iterator {
+        None => panic!("Somehow, we haven't made an iterator? fucking clap"),
+        Some(i) => dump::Dump(i, dumpdir, args.target_s, args.dump_s, dumplast, dumpops, dumpims)
+    };
 }
