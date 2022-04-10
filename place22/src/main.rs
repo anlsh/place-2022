@@ -1,6 +1,8 @@
 use clap::{ArgGroup, Parser};
+use op_iterators::binary_op_stream_from_file;
 use std::path::Path;
 
+mod binary_format;
 mod op_iterators;
 mod place_op;
 
@@ -57,6 +59,10 @@ fn main() {
         panic!("Told to dump neither ops nor images! Terrible idea");
     } else if args.target_s.is_none() && !dumplast {
         panic!("Not given target_s, but not told to dump last either. Sad!");
+    }
+
+    if args.bin.is_some() {
+        binary_op_stream_from_file(Path::new(&args.bin.unwrap()));
     }
 
     // let foo = place_op::PlaceOp { toff: 0, censor: false, r0: 0, c0: 0, r1: 0, c1: 0, palette_i: 0, old_palette_i:0 , uint_id: 0 };
