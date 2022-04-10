@@ -85,6 +85,6 @@ fn main() {
 
     match op_iterator {
         None => panic!("Somehow, we haven't made an iterator? fucking clap"),
-        Some(i) => dump::Dump(i, dumpdir, args.target_s, args.dump_s, dumplast, dumpops, dumpims)
+        Some(i) => dump::dump(i, dumpdir, args.target_s, args.dump_s, dumplast, dumpops, dumpims)
     };
 }
