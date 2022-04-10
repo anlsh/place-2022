@@ -103,10 +103,10 @@ pub fn dump(
     let tmp_ops_filename = dumpdir.join("tmp.ops");
 
     // Oh, how I long for lexical closures :/
-    let mut ops_writer = wwrapper { writer: None };
-    if dumpops {
-        ops_writer.writer = Some(new_tmpops_writer(&tmp_ops_filename));
-    }
+    let mut ops_writer = match dumpops {
+        false => None,
+        true => Some(new_tmpops_writer(&tmp_ops_filename))
+    };
 
     for op in opstream {
         seqno += 1;
@@ -134,13 +134,13 @@ pub fn dump(
                     if dumpims {
                         dump_png_to_file(&pngbuf, dumpdir.join(png_name).as_path());
                     }
-                    match ops_writer.writer {
+                    match ops_writer {
                         None => (),
                         Some(ref mut writer) => {
                             flush_ops_file_and_writer(
                                 &tmp_ops_filename, dumpdir.join(ops_name).as_path(),
                                 writer, curr_dump_n_ops, curr_dump_first_seqno);
-                            ops_writer.writer = Some(new_tmpops_writer(&tmp_ops_filename));
+                            ops_writer = Some(new_tmpops_writer(&tmp_ops_filename));
                             curr_dump_first_seqno = 0;
                             curr_dump_n_ops = 0;
                         }
@@ -150,7 +150,7 @@ pub fn dump(
             }
         }
 
-        match ops_writer.writer {
+        match ops_writer {
             None => (),
             Some(ref mut writer) => {
                 writer.write_all(&op_to_binary(&op)).expect("Could not write op to binary!");
