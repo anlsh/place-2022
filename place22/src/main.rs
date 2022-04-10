@@ -63,16 +63,6 @@ struct Args {
 
 fn main() {
 
-    let k = DateTime::parse_from_str("2022-04-03 17:38:20.001 UTC",
-                                     "%Y-%m-%d %H:%M:%S%.f %Z");
-    match k {
-        Ok(_) => (),
-        Err(error)=>  {
-            println!("Proble was {}", error);
-            panic!("");
-        }
-    }
-
     let args = Args::parse();
 
     let dumpdir = Path::new(&args.dumpdir);

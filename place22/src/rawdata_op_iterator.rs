@@ -12,7 +12,7 @@ use std::io::BufReader;
 
 use std::collections::HashMap;
 
-use chrono::{DateTime, FixedOffset};
+use chrono::{NaiveDateTime, DateTime};
 
 pub struct RawDataFileOpIterator {
     reader:BufReader<File>,
@@ -50,8 +50,8 @@ impl Iterator for RawDataFileOpIterator {
                                 r0: parts.r0,
                                 c1,
                                 r1,
-                                palette_i: parts.palette_i,
-                                old_palette_i,
+                                palette_i: parts.palette_i + 1,
+                                old_palette_i: old_palette_i + 1,
                                 uint_id: uid as u32,
                             }
                         );
@@ -63,7 +63,7 @@ impl Iterator for RawDataFileOpIterator {
 }
 
 struct op_parts {
-    datetime:DateTime<FixedOffset>,
+    datetime:DateTime<chrono::Utc>,
     user_id: String,
     palette_i: u8,
     c0: u16,
@@ -76,8 +76,9 @@ fn csv_line_to_op_parts(
 ) -> op_parts {
     let parts: Vec<&str> = line.split(",").collect();
 
-    println!("The parts are {:?} and the date part is {:?}", parts, parts[0]);
-    let datetime = DateTime::parse_from_str(parts[0], "%Y-%m-%d %H:%M:%S%.3f %Z").expect("Wait shit");
+    // println!("The parts are {:?} and the date part is {:?}", parts, parts[0]);
+    let naive_datetime = NaiveDateTime::parse_from_str(parts[0], "%Y-%m-%d %H:%M:%S%.f UTC").expect("Wait shit");
+    let datetime = DateTime::<chrono::Utc>::from_utc(naive_datetime, chrono::Utc);
     let palette_i = PALETTE.iter().position(|&e|e == u32::from_str_radix(parts[2].trim_start_matches("#"), 16).expect("problem")).unwrap();
 
     let c0 = u16::from_str_radix(parts[3].trim_start_matches("\""), 10).expect("flub");
@@ -86,13 +87,13 @@ fn csv_line_to_op_parts(
 
     match parts.len() {
         5 => {
-            r0 = u16::from_str_radix(parts[4].trim_end_matches("\""), 10).expect("aluba");
+            r0 = u16::from_str_radix(parts[4].trim_end_matches("\"\n"), 10).expect("aluba");
         }
         7 => {
             r0 = u16::from_str_radix(parts[4], 10).expect("duba");
             offs = Some((
                     u16::from_str_radix(parts[5], 10).expect("wubba"),
-                    u16::from_str_radix(parts[6].trim_end_matches("\""), 10).expect("GRUUUUB")
+                    u16::from_str_radix(parts[6].trim_end_matches("\"\n"), 10).expect("GRUUUUB")
                 )
             )
         }

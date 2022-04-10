@@ -22,3 +22,5 @@ Turns out what I really need are column indices!
 * The binary files: you can check them with hexdump
 ** hexdump -C -s 8 -n 32 /tmp/dump/final.ops
 ** Metadata and the first two things are correct!
+
+* ffmpeg command ffmpeg -framerate 60 -pattern_type glob -i '*.png' -c:v libx264rgb  /tmp/lossy-replay2.mkv
