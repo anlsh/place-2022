@@ -79,10 +79,6 @@ fn flush_ops_file_and_writer(
     std::fs::rename(tmpfile, dst).expect("Could not move tmpfile to dst");
 }
 
-struct wwrapper {
-    pub writer: Option<BufWriter<File>>
-}
-
 pub fn dump(
     opstream: Box<dyn Iterator<Item = PlaceOp>>,
     dumpdir: &Path,
@@ -121,34 +117,31 @@ pub fn dump(
             }
         }
 
-        match dump_s {
-            None => (),
-            Some(dump_s) => {
-                if op.toff as u64 > dump_s * 1000 * dump_i {
-                    let next_dump_i = (((op.toff as f64) / ((1000 * dump_s) as f64)).ceil()) as u64;
+        dump_s.map(|dump_s| {
+            if op.toff as u64 > dump_s * 1000 * dump_i {
+                let next_dump_i = (((op.toff as f64) / ((1000 * dump_s) as f64)).ceil()) as u64;
 
-                    // TODO There was some silliness with with strings being moved, figure that out
-                    let png_name = format!("{:06}.png", dump_i * dump_s);
-                    let ops_name = format!("{:06}.ops", dump_i * dump_s);
+                // TODO There was some silliness with with strings being moved, figure that out
+                let png_name = format!("{:06}.png", dump_i * dump_s);
+                let ops_name = format!("{:06}.ops", dump_i * dump_s);
 
-                    if dumpims {
-                        dump_png_to_file(&pngbuf, dumpdir.join(png_name).as_path());
-                    }
-                    match ops_writer {
-                        None => (),
-                        Some(ref mut writer) => {
-                            flush_ops_file_and_writer(
-                                &tmp_ops_filename, dumpdir.join(ops_name).as_path(),
-                                writer, curr_dump_n_ops, curr_dump_first_seqno);
-                            ops_writer = Some(new_tmpops_writer(&tmp_ops_filename));
-                            curr_dump_first_seqno = 0;
-                            curr_dump_n_ops = 0;
-                        }
-                    }
-                    dump_i = next_dump_i;
+                if dumpims {
+                    dump_png_to_file(&pngbuf, dumpdir.join(png_name).as_path());
                 }
+                match ops_writer {
+                    None => (),
+                    Some(ref mut writer) => {
+                        flush_ops_file_and_writer(
+                            &tmp_ops_filename, dumpdir.join(ops_name).as_path(),
+                            writer, curr_dump_n_ops, curr_dump_first_seqno);
+                        ops_writer = Some(new_tmpops_writer(&tmp_ops_filename));
+                        curr_dump_first_seqno = 0;
+                        curr_dump_n_ops = 0;
+                    }
+                }
+                dump_i = next_dump_i;
             }
-        }
+        });
 
         match ops_writer {
             None => (),
