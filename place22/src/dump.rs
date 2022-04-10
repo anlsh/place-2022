@@ -43,24 +43,28 @@ fn dump_png_to_file(pngbuf: &[u8; IMAGE_SIZE * PNG_PIXEL_BYTES], path: &Path) {
     writer.write_image_data(pngbuf).unwrap();
 }
 
-fn flush_ops_file_and_writer(
-    tmpfile: &Path, dst: Option<&Path>,
-    writer: &mut Option<BufWriter<File>>,
-    num_ops: u32, starting_seqno: u32,
-    create_new: bool
-) -> Option<BufWriter<File>>
-{
-    // Does a couple of things
-    // If dst is passed, then renames tmpfile to dst and updates the num_ops/starting_seqno header
-    //
-    // Then it will recreate tmpfile unless create_new is false, write the
-    // placeholder bytes if the file was created, and update the "writer"
-    // reference
+fn new_tmpops_writer(
+    tmpfile: &Path,
+    writer: &mut wwrapper,
+) {
+    // Creates the tmpfile, writes a placeholder header, and returns a writer
+    let mut new_writer = BufWriter::new(File::create(tmpfile).expect("Could not create temp ops file"));
+    // Write placeholder bytes for the num_ops and starting_seqno, since
+    // we don't know the first yet and the second is actually impossible to know
+    new_writer.write_all(&[0; BINFILE_HEADER_BYTES]).expect("Could not write placeholder bytes to tmp ops file");
+    writer.writer = Some(new_writer);
+}
 
-    match writer {
+fn flush_ops_file_and_writer(
+    tmpfile: &Path, dst: &Path,
+    writer: &mut wwrapper,
+    num_ops: u32, starting_seqno: u32,
+) {
+    match &mut writer.writer {
         None => (),
-        Some(w) => {
-            w.seek(std::io::SeekFrom::Start(0)).expect("Could not seek 0");
+        Some(writer) => {
+            // Renames tmpfile to dst and writes the header
+            writer.seek(std::io::SeekFrom::Start(0)).expect("Could not seek 0");
 
             // Man I should really learn to use the byteorder crate
             let mut header = [0; 8];
@@ -74,30 +78,16 @@ fn flush_ops_file_and_writer(
             header[6] =  ((starting_seqno & 0x0000FF00) >> 8) as u8;
             header[7] =  ((starting_seqno & 0x000000FF) >> 0) as u8;
 
-            w.write_all(&header).expect("Could not write header");
-        }
-    }
+            writer.write_all(&header).expect("Could not write header");
 
-    match dst {
-        None => (),
-        Some(dst) => {
             std::fs::rename(tmpfile, dst).expect("Could not move tmpfile to dst");
-        }
-    };
-
-    match create_new {
-        false => None,
-        true => {
-            let mut writer = BufWriter::new(File::create(tmpfile).expect("Could not create temp ops file"));
-            // Write placeholder bytes for the num_ops and starting_seqno, since
-            // we don't know the first yet and the second is actually impossible to know
-            writer.write_all(&[0; BINFILE_HEADER_BYTES]).expect("Could not write placeholder bytes to tmp ops file");
-            Some(writer)
         }
     }
 }
 
-// fn get_pngwriter_for_file(prefix: string, )
+struct wwrapper {
+    pub writer: Option<BufWriter<File>>
+}
 
 pub fn dump(
     opstream: Box<dyn Iterator<Item = PlaceOp>>,
@@ -119,8 +109,16 @@ pub fn dump(
     let tmp_ops_filename = dumpdir.join("tmp.ops");
 
     // Oh, how I long for lexical closures :/
-    let mut ops_writer = None;
-    ops_writer = flush_ops_file_and_writer(&tmp_ops_filename, None, &mut ops_writer, 0, 0, dumpops);
+    let mut ops_writer = wwrapper { writer: None };
+    if dumpops {
+        new_tmpops_writer(&tmp_ops_filename, &mut ops_writer);
+    }
+    //     wwrapper {
+    //     writer: match dumpops {
+    //         false => None,
+    //         true => Some()
+    //     }
+    // };
 
     for op in opstream {
         seqno += 1;
@@ -149,9 +147,10 @@ pub fn dump(
                         dump_png_to_file(&pngbuf, dumpdir.join(png_name).as_path());
                     }
                     if dumpops {
-                        ops_writer = flush_ops_file_and_writer(
-                            &tmp_ops_filename, Some(dumpdir.join(ops_name).as_path()),
-                            &mut ops_writer, curr_dump_n_ops, curr_dump_first_seqno, true);
+                        flush_ops_file_and_writer(
+                            &tmp_ops_filename, dumpdir.join(ops_name).as_path(),
+                            &mut ops_writer, curr_dump_n_ops, curr_dump_first_seqno);
+                        new_tmpops_writer(&tmp_ops_filename, &mut ops_writer);
                         curr_dump_first_seqno = 0;
                         curr_dump_n_ops = 0;
                     }
@@ -160,11 +159,18 @@ pub fn dump(
             }
         }
 
-        match ops_writer {
+        match ops_writer.writer {
             None => (),
-            Some(mut ops_writer) => {
-                ops_writer.write_all(&op_to_binary(&op)).expect("Could not write op to binary!");
+            Some(ref mut writer) => {
+                writer.write_all(&op_to_binary(&op)).expect("Could not write op to binary!");
             }
         }
+        // ops_writer.map(|mut ops_writer| {
+        //     ops_writer.write_all(&op_to_binary(&op)).expect("Could not write op to binary!");
+        // });
+        // match ops_writer {
+        //     None => (),
+        //     Some(i) => ()
+        // }
     }
 }
