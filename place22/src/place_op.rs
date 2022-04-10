@@ -34,7 +34,7 @@ pub fn buffer_to_op(buf: &[u8; BINFILE_OP_SIZE_IN_BYTES]) -> PlaceOp {
 pub fn op_to_binary(op: &PlaceOp) -> [u8; BINFILE_OP_SIZE_IN_BYTES] {
     let mut buf = [0; BINFILE_OP_SIZE_IN_BYTES];
 
-    buf[0] = (((op.toff & 0xFF000000) >> 24) as u8) & ((op.censor as u8) << 7);
+    buf[0] = (((op.toff & 0xFF000000) >> 24) as u8) | ((op.censor as u8) << 7);
     buf[1] = ((op.toff & 0x00FF0000) >> 16) as u8;
     buf[2] = ((op.toff & 0x0000FF00) >> 8) as u8;
     buf[3] = ((op.toff & 0x000000FF)) as u8;
