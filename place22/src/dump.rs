@@ -2,6 +2,7 @@ use crate::place_op::*;
 use std::path::Path;
 use std::fs::File;
 use std::io::{BufWriter, Write, Seek};
+use std::cmp::{min,max};
 
 use crate::constants::{EDGE_SIZE, IMAGE_SIZE};
 use crate::binary_format::{PALETTE, BINFILE_HEADER_BYTES};
@@ -10,9 +11,9 @@ use crate::binary_format::{PALETTE, BINFILE_HEADER_BYTES};
 const PNG_PIXEL_BYTES: usize = 4;
 const PNG_COLOR_TYPE: png::ColorType = png::ColorType::Rgba;
 
-fn set_pixel_in_pngbuf(row: usize, col: usize, palette_i: usize, buf: &mut [u8; IMAGE_SIZE * PNG_PIXEL_BYTES]) {
+fn set_pixel_in_pngbuf(row: usize, col: usize, palette_i: u8, buf: &mut [u8; IMAGE_SIZE * PNG_PIXEL_BYTES]) {
     let root_i = ((row * EDGE_SIZE) + col) * PNG_PIXEL_BYTES;
-    let color = PALETTE[palette_i];
+    let color = PALETTE[palette_i as usize];
     buf[root_i] = ((color & 0xFF0000) >> 16) as u8;
     buf[root_i + 1] = ((color & 0xFF00) >> 8) as u8;
     buf[root_i + 2] = (color & 0xFF) as u8;
@@ -89,7 +90,7 @@ pub fn dump(
     dumpims: bool
 ) {
     let mut pngbuf = [0xFF; IMAGE_SIZE * PNG_PIXEL_BYTES];
-    let mut palettebuf = [31; IMAGE_SIZE];
+    // let mut palettebuf = [31; IMAGE_SIZE];
 
     let mut seqno = 1;
     let mut dump_i = 1;
@@ -147,6 +148,29 @@ pub fn dump(
             None => (),
             Some(ref mut writer) => {
                 writer.write_all(&op_to_binary(&op)).expect("Could not write op to binary!");
+            }
+        }
+        if !op.censor {
+            set_pixel_in_pngbuf(op.r0.into(), op.c0.into(), op.palette_i, &mut pngbuf);
+        } else {
+            for r in min(op.r0, op.r1)..max(op.r0, op.r1) + 1 {
+                for c in min(op.c0, op.c1)..max(op.c0, op.c1) + 1 {
+                    set_pixel_in_pngbuf(r.into(), c.into(), op.palette_i, &mut pngbuf);
+                }
+            }
+        }
+    }
+
+    if dumplast {
+        if dumpims {
+            dump_png_to_file(&pngbuf, dumpdir.join("final.png").as_path());
+        }
+        match ops_writer {
+            None => (),
+            Some(ref mut writer) => {
+                flush_ops_file_and_writer(
+                    &tmp_ops_filename, dumpdir.join("final.ops").as_path(),
+                    writer, curr_dump_n_ops, curr_dump_first_seqno);
             }
         }
     }
