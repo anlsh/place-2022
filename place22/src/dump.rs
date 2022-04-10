@@ -11,15 +11,15 @@ use crate::binary_format::{PALETTE, BINFILE_HEADER_BYTES};
 const PNG_PIXEL_BYTES: usize = 4;
 const PNG_COLOR_TYPE: png::ColorType = png::ColorType::Rgba;
 
-fn set_pixel_in_pngbuf(row: usize, col: usize, palette_i: u8, buf: &mut [u8; IMAGE_SIZE * PNG_PIXEL_BYTES]) {
+fn set_pixel_in_pngbuf(row: usize, col: usize, palette_i: u8, buf: &mut Vec<u8>) {
     let root_i = ((row * EDGE_SIZE) + col) * PNG_PIXEL_BYTES;
-    let color = PALETTE[palette_i as usize];
+    let color = PALETTE[(palette_i - 1) as usize];
     buf[root_i] = ((color & 0xFF0000) >> 16) as u8;
     buf[root_i + 1] = ((color & 0xFF00) >> 8) as u8;
     buf[root_i + 2] = (color & 0xFF) as u8;
 }
 
-fn dump_png_to_file(pngbuf: &[u8; IMAGE_SIZE * PNG_PIXEL_BYTES], path: &Path) {
+fn dump_png_to_file(pngbuf: &Vec<u8>, path: &Path) {
     // https://docs.rs/png/latest/png/
     let file = File::create(path).expect("Could not initialize png file for writing");
     let ref mut w = BufWriter::new(file);
@@ -90,7 +90,8 @@ pub fn dump(
     dumpims: bool,
     checkencoding: bool
 ) {
-    let mut pngbuf = [0xFF; IMAGE_SIZE * PNG_PIXEL_BYTES];
+
+    let mut pngbuf: Vec<u8> = vec![0xFF; IMAGE_SIZE * PNG_PIXEL_BYTES];
     // let mut palettebuf = [31; IMAGE_SIZE];
 
     let mut seqno = 1;
@@ -106,8 +107,7 @@ pub fn dump(
         true => Some(new_tmpops_writer(&tmp_ops_filename))
     };
 
-    for op in tqdm_rs::Tqdm::new(opstream) {
-
+    for op in opstream {
         if checkencoding {
             let encoded_op = op_to_binary(&op);
             let decoded_op = buffer_to_op(&encoded_op);

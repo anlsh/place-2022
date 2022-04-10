@@ -76,10 +76,10 @@ fn main() {
     }
 
     if !dumplast {
-        print!("WARNING: Told not to dump final state, which is usually useful");
+        println!("WARNING: Told not to dump final state, which is usually useful");
     }
     if checkencoding {
-        print!("WARNING: Encoding checks are enabled! This will slow things down a lot!");
+        println!("WARNING: Encoding checks are enabled! This will slow things down a lot!");
     }
 
     let mut op_iterator: Option<Box<dyn Iterator<Item = place_op::PlaceOp>>> = None;
@@ -88,6 +88,7 @@ fn main() {
         op_iterator = Some(Box::new(
             binary_op_stream_from_file(Path::new(&args.bin.unwrap()))
         ));
+
     } else if args.ccsv.is_some() {
         panic!("Ok, unfortunately the ccsv arg is unimplemented for now");
     }

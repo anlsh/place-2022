@@ -1,5 +1,6 @@
 use std::iter::Iterator;
 
+use std::io::{self, Write};
 use crate::place_op::{PlaceOp, buffer_to_op};
 use std::path::Path;
 use std::io::Read;
@@ -23,7 +24,8 @@ impl Iterator for BinaryFileOpIterator {
         // It's possible this buffer should actually be declared somewhere else
         // to cut down allocations? Or maybe this is already fine?
         let mut buf = [0; 16];
-        self.reader.read_exact(&mut buf).expect("Could not read the starting seqno");
+        self.reader.read_exact(&mut buf).expect("Fell off the end of the buffer!");
+        self.n_ops_read += 1;
         return Some(buffer_to_op(&buf));
     }
 }
@@ -40,8 +42,6 @@ pub fn binary_op_stream_from_file(path: &Path) -> BinaryFileOpIterator {
         + ((sbuf[1] as u32) << 16)
         + ((sbuf[2] as  u32) << 8)
         + (sbuf[3] as u32);
-
-    // print!("The number of ops in this file is {}", num_ops);
 
     // Disregard the starting seqno
     buf_reader.read_exact(&mut sbuf).expect("Could not read the starting seqno");
