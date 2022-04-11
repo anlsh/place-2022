@@ -1,15 +1,15 @@
 use clap::{ArgGroup, Parser};
 use op_iterators::binary_op_stream_from_file;
 use rawdata_op_iterator::rawdata_op_stream_from_file;
-use std::path::Path;
 use std::iter::Iterator;
+use std::path::Path;
 
 use chrono::{DateTime, FixedOffset};
 mod binary_format;
+mod constants;
+mod dump;
 mod op_iterators;
 mod place_op;
-mod dump;
-mod constants;
 mod rawdata_op_iterator;
 
 /// Simple program to greet a person
@@ -17,7 +17,7 @@ mod rawdata_op_iterator;
 #[clap(group(ArgGroup::new("spec").required(true).args(&["csv", "bin"])))]
 struct Args {
     /// Directory to dump files to
-    #[clap(short, long, required=true)]
+    #[clap(short, long, required = true)]
     dumpdir: String,
 
     /// Path to the raw data CSV. It's not quite the raw data provided by
@@ -59,11 +59,10 @@ struct Args {
     /// When true (default false), verify the binary encoding on every operation
     /// by checking that x = decode(encode(x))
     #[clap(long)]
-    checkencoding: Option<bool>
+    checkencoding: Option<bool>,
 }
 
 fn main() {
-
     let args = Args::parse();
 
     let dumpdir = Path::new(&args.dumpdir);
@@ -90,17 +89,27 @@ fn main() {
     let mut op_iterator: Option<Box<dyn Iterator<Item = place_op::PlaceOp>>> = None;
 
     if args.bin.is_some() {
-        op_iterator = Some(Box::new(
-            binary_op_stream_from_file(Path::new(&args.bin.unwrap()))
-        ));
-
+        op_iterator = Some(Box::new(binary_op_stream_from_file(Path::new(
+            &args.bin.unwrap(),
+        ))));
     } else if args.csv.is_some() {
         // panic!("Ok, unfortunately the csv arg is unimplemented for now");
-        op_iterator = Some(Box::new(rawdata_op_stream_from_file(Path::new(&args.csv.unwrap()))));
+        op_iterator = Some(Box::new(rawdata_op_stream_from_file(Path::new(
+            &args.csv.unwrap(),
+        ))));
     }
 
     match op_iterator {
         None => panic!("Somehow, we haven't made an iterator? fucking clap"),
-        Some(i) => dump::dump(i, dumpdir, args.target_s, args.dump_s, dumplast, dumpops, dumpims, checkencoding)
+        Some(i) => dump::dump(
+            i,
+            dumpdir,
+            args.target_s,
+            args.dump_s,
+            dumplast,
+            dumpops,
+            dumpims,
+            checkencoding,
+        ),
     };
 }

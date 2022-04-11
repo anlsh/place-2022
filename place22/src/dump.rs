@@ -1,11 +1,11 @@
 use crate::place_op::*;
-use std::path::Path;
+use std::cmp::{max, min};
 use std::fs::File;
-use std::io::{BufWriter, Write, Seek};
-use std::cmp::{min,max};
+use std::io::{BufWriter, Seek, Write};
+use std::path::Path;
 
+use crate::binary_format::{BINFILE_HEADER_BYTES, PALETTE};
 use crate::constants::{EDGE_SIZE, IMAGE_SIZE};
-use crate::binary_format::{PALETTE, BINFILE_HEADER_BYTES};
 
 // The idea is to be easily able to switch to a 3-byte rgb encoding
 const PNG_PIXEL_BYTES: usize = 4;
@@ -29,14 +29,15 @@ fn dump_png_to_file(pngbuf: &Vec<u8>, path: &Path) {
     encoder.set_depth(png::BitDepth::Eight);
 
     // I hope to be able to comment this entire block
-    encoder.set_trns(vec!(0xFFu8, 0xFFu8, 0xFFu8, 0xFFu8));
+    encoder.set_trns(vec![0xFFu8, 0xFFu8, 0xFFu8, 0xFFu8]);
     encoder.set_source_gamma(png::ScaledFloat::from_scaled(45455)); // 1.0 / 2.2, scaled by 100000
-    encoder.set_source_gamma(png::ScaledFloat::new(1.0 / 2.2));     // 1.0 / 2.2, unscaled, but rounded
-    let source_chromaticities = png::SourceChromaticities::new(     // Using unscaled instantiation here
+    encoder.set_source_gamma(png::ScaledFloat::new(1.0 / 2.2)); // 1.0 / 2.2, unscaled, but rounded
+    let source_chromaticities = png::SourceChromaticities::new(
+        // Using unscaled instantiation here
         (0.31270, 0.32900),
         (0.64000, 0.33000),
         (0.30000, 0.60000),
-        (0.15000, 0.06000)
+        (0.15000, 0.06000),
     );
     encoder.set_source_chromaticities(source_chromaticities);
     // End useless block
@@ -44,36 +45,41 @@ fn dump_png_to_file(pngbuf: &Vec<u8>, path: &Path) {
     writer.write_image_data(pngbuf).unwrap();
 }
 
-fn new_tmpops_writer(
-    tmpfile: &Path,
-) -> BufWriter<File> {
+fn new_tmpops_writer(tmpfile: &Path) -> BufWriter<File> {
     // Creates the tmpfile, writes a placeholder header, and returns a writer
-    let mut new_writer = BufWriter::new(File::create(tmpfile).expect("Could not create temp ops file"));
+    let mut new_writer =
+        BufWriter::new(File::create(tmpfile).expect("Could not create temp ops file"));
     // Write placeholder bytes for the num_ops and starting_seqno, since
     // we don't know the first yet and the second is actually impossible to know
-    new_writer.write_all(&[0; BINFILE_HEADER_BYTES]).expect("Could not write placeholder bytes to tmp ops file");
+    new_writer
+        .write_all(&[0; BINFILE_HEADER_BYTES])
+        .expect("Could not write placeholder bytes to tmp ops file");
     return new_writer;
 }
 
 fn flush_ops_file_and_writer(
-    tmpfile: &Path, dst: &Path,
+    tmpfile: &Path,
+    dst: &Path,
     writer: &mut BufWriter<File>,
-    num_ops: u32, starting_seqno: u32,
+    num_ops: u32,
+    starting_seqno: u32,
 ) {
     // Renames tmpfile to dst and writes the header
-    writer.seek(std::io::SeekFrom::Start(0)).expect("Could not seek 0");
+    writer
+        .seek(std::io::SeekFrom::Start(0))
+        .expect("Could not seek 0");
 
     // Man I should really learn to use the byteorder crate
     let mut header = [0; 8];
-    header[0] =  ((num_ops & 0xFF000000) >> 24) as u8;
-    header[1] =  ((num_ops & 0x00FF0000) >> 16) as u8;
-    header[2] =  ((num_ops & 0x0000FF00) >> 8) as u8;
-    header[3] =  ((num_ops & 0x000000FF) >> 0) as u8;
+    header[0] = ((num_ops & 0xFF000000) >> 24) as u8;
+    header[1] = ((num_ops & 0x00FF0000) >> 16) as u8;
+    header[2] = ((num_ops & 0x0000FF00) >> 8) as u8;
+    header[3] = ((num_ops & 0x000000FF) >> 0) as u8;
 
-    header[4] =  ((starting_seqno & 0xFF000000) >> 24) as u8;
-    header[5] =  ((starting_seqno & 0x00FF0000) >> 16) as u8;
-    header[6] =  ((starting_seqno & 0x0000FF00) >> 8) as u8;
-    header[7] =  ((starting_seqno & 0x000000FF) >> 0) as u8;
+    header[4] = ((starting_seqno & 0xFF000000) >> 24) as u8;
+    header[5] = ((starting_seqno & 0x00FF0000) >> 16) as u8;
+    header[6] = ((starting_seqno & 0x0000FF00) >> 8) as u8;
+    header[7] = ((starting_seqno & 0x000000FF) >> 0) as u8;
 
     writer.write_all(&header).expect("Could not write header");
 
@@ -88,9 +94,8 @@ pub fn dump(
     dumplast: bool,
     dumpops: bool,
     dumpims: bool,
-    checkencoding: bool
+    checkencoding: bool,
 ) {
-
     let mut pngbuf: Vec<u8> = vec![0xFF; IMAGE_SIZE * PNG_PIXEL_BYTES];
     // let mut palettebuf = [31; IMAGE_SIZE];
 
@@ -104,7 +109,7 @@ pub fn dump(
     // Oh, how I long for lexical closures :/
     let mut ops_writer = match dumpops {
         false => None,
-        true => Some(new_tmpops_writer(&tmp_ops_filename))
+        true => Some(new_tmpops_writer(&tmp_ops_filename)),
     };
 
     for op in opstream {
@@ -112,7 +117,10 @@ pub fn dump(
             let encoded_op = op_to_binary(&op);
             let decoded_op = buffer_to_op(&encoded_op);
             if op != decoded_op {
-                let errstr = format!("Coding error:\n Original: {:?}\nDecoded: {:?}\nBinary: {:?}", op, decoded_op, encoded_op);
+                let errstr = format!(
+                    "Coding error:\n Original: {:?}\nDecoded: {:?}\nBinary: {:?}",
+                    op, decoded_op, encoded_op
+                );
                 panic!("{}", errstr);
             }
         }
@@ -144,8 +152,12 @@ pub fn dump(
                     None => (),
                     Some(ref mut writer) => {
                         flush_ops_file_and_writer(
-                            &tmp_ops_filename, dumpdir.join(ops_name).as_path(),
-                            writer, curr_dump_n_ops, curr_dump_first_seqno);
+                            &tmp_ops_filename,
+                            dumpdir.join(ops_name).as_path(),
+                            writer,
+                            curr_dump_n_ops,
+                            curr_dump_first_seqno,
+                        );
                         ops_writer = Some(new_tmpops_writer(&tmp_ops_filename));
                         curr_dump_first_seqno = 0;
                         curr_dump_n_ops = 0;
@@ -158,7 +170,9 @@ pub fn dump(
         match ops_writer {
             None => (),
             Some(ref mut writer) => {
-                writer.write_all(&op_to_binary(&op)).expect("Could not write op to binary!");
+                writer
+                    .write_all(&op_to_binary(&op))
+                    .expect("Could not write op to binary!");
             }
         }
         if !op.censor {
@@ -180,8 +194,12 @@ pub fn dump(
             None => (),
             Some(ref mut writer) => {
                 flush_ops_file_and_writer(
-                    &tmp_ops_filename, dumpdir.join("final.ops").as_path(),
-                    writer, curr_dump_n_ops, curr_dump_first_seqno);
+                    &tmp_ops_filename,
+                    dumpdir.join("final.ops").as_path(),
+                    writer,
+                    curr_dump_n_ops,
+                    curr_dump_first_seqno,
+                );
             }
         }
     }
