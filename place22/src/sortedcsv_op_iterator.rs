@@ -14,14 +14,14 @@ use std::collections::HashMap;
 
 use chrono::{DateTime, NaiveDateTime, Utc};
 
-pub struct RawDataFileOpIterator {
+pub struct SortedCsvOpIterator {
     reader: BufReader<File>,
     userhash_to_int: HashMap<String, u64>,
     first_op_time: u64,
     palette_arr: Vec<u8>,
 }
 
-impl Iterator for RawDataFileOpIterator {
+impl Iterator for SortedCsvOpIterator {
     type Item = PlaceOp;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -134,7 +134,7 @@ fn update_palette_arr(palette_i: u8, c0: u16, r0: u16, censor_corner: Option<(u1
     }
 }
 
-pub fn rawdata_op_stream_from_file(
+pub fn ops_from_sorted_csv(
     path: &Path,
 ) -> Box<dyn std::iter::Iterator<Item = PlaceOp>> {
     let f = File::open(path).expect("Could not open file for reading");
@@ -171,7 +171,7 @@ pub fn rawdata_op_stream_from_file(
         uint_id: 0,
     };
 
-    let rest = RawDataFileOpIterator {
+    let rest = SortedCsvOpIterator {
         reader: buf_reader,
         userhash_to_int,
         first_op_time: start_op_parts.datetime.timestamp() as u64,

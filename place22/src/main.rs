@@ -1,15 +1,15 @@
 use clap::{ArgGroup, Parser};
-use op_iterators::binary_op_stream_from_file;
-use rawdata_op_iterator::rawdata_op_stream_from_file;
+use binary_op_iterator::ops_from_binary_file;
+use sortedcsv_op_iterator::ops_from_sorted_csv;
 use std::iter::Iterator;
 use std::path::Path;
 
 mod binary_format;
 mod constants;
 mod dump;
-mod op_iterators;
+mod binary_op_iterator;
 mod place_op;
-mod rawdata_op_iterator;
+mod sortedcsv_op_iterator;
 
 /// Simple program to greet a person
 #[derive(Parser)]
@@ -88,12 +88,12 @@ fn main() {
     let mut op_iterator: Option<Box<dyn Iterator<Item = place_op::PlaceOp>>> = None;
 
     if args.bin.is_some() {
-        op_iterator = Some(Box::new(binary_op_stream_from_file(Path::new(
+        op_iterator = Some(Box::new(ops_from_binary_file(Path::new(
             &args.bin.unwrap(),
         ))));
     } else if args.csv.is_some() {
         // panic!("Ok, unfortunately the csv arg is unimplemented for now");
-        op_iterator = Some(rawdata_op_stream_from_file(Path::new(
+        op_iterator = Some(ops_from_sorted_csv(Path::new(
             &args.csv.unwrap(),
         )));
     }

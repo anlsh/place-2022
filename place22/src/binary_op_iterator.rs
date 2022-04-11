@@ -31,7 +31,7 @@ impl Iterator for BinaryFileOpIterator {
     }
 }
 
-pub fn binary_op_stream_from_file(path: &Path) -> BinaryFileOpIterator {
+pub fn ops_from_binary_file(path: &Path) -> BinaryFileOpIterator {
     let f = File::open(path).expect("Could not open file for reading");
     let mut buf_reader = BufReader::new(f);
 
