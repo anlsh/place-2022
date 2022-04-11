@@ -12,7 +12,7 @@ use std::io::BufReader;
 
 use std::collections::HashMap;
 
-use chrono::{NaiveDateTime, DateTime};
+use chrono::{NaiveDateTime, DateTime, Utc};
 
 pub struct RawDataFileOpIterator {
     reader:BufReader<File>,
@@ -29,6 +29,10 @@ impl Iterator for RawDataFileOpIterator {
         match self.reader.read_line(&mut buf) {
             Err(_) => None,
             Ok(_) => {
+                // Discard the final trailing newline
+                if buf.len() == 0 {
+                    return None;
+                }
                 let parts = csv_line_to_op_parts(&buf);
                 let old_palette_i = self.palette_arr[rowcol_to_idx(parts.r0, parts.c0)];
                 let uid: u64 = match self.uid_to_int.get(parts.user_id.as_str()) {
@@ -63,7 +67,7 @@ impl Iterator for RawDataFileOpIterator {
 }
 
 struct op_parts {
-    datetime:DateTime<chrono::Utc>,
+    datetime:DateTime<Utc>,
     user_id: String,
     palette_i: u8,
     c0: u16,
@@ -76,9 +80,9 @@ fn csv_line_to_op_parts(
 ) -> op_parts {
     let parts: Vec<&str> = line.split(",").collect();
 
-    // println!("The parts are {:?} and the date part is {:?}", parts, parts[0]);
-    let naive_datetime = NaiveDateTime::parse_from_str(parts[0], "%Y-%m-%d %H:%M:%S%.f UTC").expect("Wait shit");
+    let naive_datetime = NaiveDateTime::parse_from_str(parts[0].trim_end_matches("-07"), "%Y-%m-%d %H:%M:%S%.f").expect(&format!("Failed to parse time string {}, {}DONEZO {}", parts[0], line, line.len()));
     let datetime = DateTime::<chrono::Utc>::from_utc(naive_datetime, chrono::Utc);
+
     let palette_i = PALETTE.iter().position(|&e|e == u32::from_str_radix(parts[2].trim_start_matches("#"), 16).expect("problem")).unwrap();
 
     let c0 = u16::from_str_radix(parts[3].trim_start_matches("\""), 10).expect("flub");

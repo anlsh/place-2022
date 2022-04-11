@@ -20,7 +20,8 @@ struct Args {
     #[clap(short, long, required=true)]
     dumpdir: String,
 
-    /// Path to the custom-formatted CSV
+    /// Path to the raw data CSV. It's not quite the raw data provided by
+    /// reddit: it has to be sorted by timestamp, unfortunately
     #[clap(short, long)]
     csv: Option<String>,
 
