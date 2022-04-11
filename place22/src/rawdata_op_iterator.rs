@@ -35,19 +35,17 @@ impl Iterator for RawDataFileOpIterator {
                 }
                 let parts = csv_line_to_op_parts(&buf);
                 let old_palette_i = self.palette_arr[rowcol_to_idx(parts.r0, parts.c0)];
-                let uid: u64 = match self.userhash_to_int.get(parts.user_id.as_str()) {
+                let uid: u64 = match self.userhash_to_int.get(&parts.user_id) {
                     Some(val) => val.clone(),
                     None => {
-                        let new_assoc = self.userhash_to_int.len() as u64;
-                        self.userhash_to_int.insert(parts.user_id, new_assoc);
-                        new_assoc
+                        self.userhash_to_int.insert(parts.user_id, self.userhash_to_int.len().try_into().unwrap()).unwrap()
                     }
                 };
                 update_palette_arr(parts.palette_i, parts.c0, parts.r0, parts.censor_corner, &mut self.palette_arr);
                 match parts.censor_corner.unwrap_or((0, 0)) {
                     (c1, r1) => {
                         return Some(PlaceOp {
-                            toff: ((parts.datetime.timestamp() as u64) - self.first_op_time) as u32,
+                            toff: ((parts.datetime.timestamp() as u64) - self.first_op_time).try_into().unwrap(),
                             censor: parts.censor_corner.is_some(),
                             c0: parts.c0,
                             r0: parts.r0,
@@ -64,7 +62,7 @@ impl Iterator for RawDataFileOpIterator {
     }
 }
 
-struct op_parts {
+struct OpParts {
     datetime: DateTime<Utc>,
     user_id: String,
     palette_i: u8,
@@ -73,18 +71,18 @@ struct op_parts {
     censor_corner: Option<(u16, u16)>,
 }
 
-fn csv_line_to_op_parts(line: &str) -> op_parts {
+fn csv_line_to_op_parts(line: &str) -> OpParts {
     let parts: Vec<&str> = line.split(",").collect();
 
 
-    let c0 = u16::from_str_radix(parts[3].trim_start_matches("\""), 10).expect("flub");
+    let c0 = u16::from_str_radix(parts[3].trim_start_matches("\""), 10).unwrap();
     let (r0, corner_coords) = match parts.len() {
         5 => {
-            (u16::from_str_radix(parts[4].trim_end_matches("\"\n"), 10).expect("aluba"), None)
+            (u16::from_str_radix(parts[4].trim_end_matches("\"\n"), 10).unwrap(), None)
         }
         7 => {
             (
-                u16::from_str_radix(parts[4], 10).expect("duba"),
+                u16::from_str_radix(parts[4], 10).unwrap(),
                 Some((
                     u16::from_str_radix(parts[5], 10).unwrap(),
                     u16::from_str_radix(parts[6].trim_end_matches("\"\n"), 10).unwrap(),
@@ -107,7 +105,7 @@ fn csv_line_to_op_parts(line: &str) -> op_parts {
         })
         .unwrap();
 
-    return op_parts {
+    return OpParts {
         datetime,
         user_id: parts[1].to_string(),
         palette_i: palette_i as u8,
@@ -173,12 +171,10 @@ pub fn rawdata_op_stream_from_file(
         uint_id: 0,
     };
 
-    let start_unix_time = start_op_parts.datetime.timestamp() as u64;
-
     let rest = RawDataFileOpIterator {
         reader: buf_reader,
         userhash_to_int,
-        first_op_time: start_unix_time,
+        first_op_time: start_op_parts.datetime.timestamp() as u64,
         palette_arr,
     };
     return Box::new(std::iter::once(first_op).chain(rest));

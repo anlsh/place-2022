@@ -4,7 +4,6 @@ use rawdata_op_iterator::rawdata_op_stream_from_file;
 use std::iter::Iterator;
 use std::path::Path;
 
-use chrono::{DateTime, FixedOffset};
 mod binary_format;
 mod constants;
 mod dump;

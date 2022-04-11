@@ -97,9 +97,7 @@ pub fn dump(
     checkencoding: bool,
 ) {
     let mut pngbuf: Vec<u8> = vec![0xFF; IMAGE_SIZE * PNG_PIXEL_BYTES];
-    // let mut palettebuf = [31; IMAGE_SIZE];
 
-    let mut seqno = 1;
     let mut dump_i = 1;
     let mut curr_dump_first_seqno = 1;
     let mut curr_dump_n_ops = 0;
@@ -124,8 +122,6 @@ pub fn dump(
                 panic!("{}", errstr);
             }
         }
-
-        seqno += 1;
 
         // Can't use "match" here because I need to break from the look
         match target_s {
