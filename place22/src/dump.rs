@@ -71,15 +71,15 @@ fn flush_ops_file_and_writer(
 
     // Man I should really learn to use the byteorder crate
     let mut header = [0; 8];
-    header[0] = ((num_ops & 0xFF000000) >> 24) as u8;
-    header[1] = ((num_ops & 0x00FF0000) >> 16) as u8;
-    header[2] = ((num_ops & 0x0000FF00) >> 8) as u8;
-    header[3] = ((num_ops & 0x000000FF) >> 0) as u8;
+    header[0] = ((num_ops & 0xFF000000) >> 24).try_into().unwrap();
+    header[1] = ((num_ops & 0x00FF0000) >> 16).try_into().unwrap();
+    header[2] = ((num_ops & 0x0000FF00) >> 8).try_into().unwrap();
+    header[3] = ((num_ops & 0x000000FF) >> 0).try_into().unwrap();
 
-    header[4] = ((starting_seqno & 0xFF000000) >> 24) as u8;
-    header[5] = ((starting_seqno & 0x00FF0000) >> 16) as u8;
-    header[6] = ((starting_seqno & 0x0000FF00) >> 8) as u8;
-    header[7] = ((starting_seqno & 0x000000FF) >> 0) as u8;
+    header[4] = ((starting_seqno & 0xFF000000) >> 24).try_into().unwrap();
+    header[5] = ((starting_seqno & 0x00FF0000) >> 16).try_into().unwrap();
+    header[6] = ((starting_seqno & 0x0000FF00) >> 8).try_into().unwrap();
+    header[7] = ((starting_seqno & 0x000000FF) >> 0).try_into().unwrap();
 
     writer.write_all(&header).expect("Could not write header");
 
@@ -136,20 +136,17 @@ pub fn dump(
         dump_s.map(|dump_s| {
             if op.toff as u64 > dump_s * 1000 * dump_i {
                 let next_dump_i = (((op.toff as f64) / ((1000 * dump_s) as f64)).ceil()) as u64;
-
-                // TODO There was some silliness with with strings being moved, figure that out
-                let png_name = format!("{:06}.png", dump_i * dump_s);
-                let ops_name = format!("{:06}.ops", dump_i * dump_s);
+                let prefix = format!("{:06}", dump_i * dump_s);
 
                 if dumpims {
-                    dump_png_to_file(&pngbuf, dumpdir.join(png_name).as_path());
+                    dump_png_to_file(&pngbuf, dumpdir.join(format!("{}.png", prefix)).as_path());
                 }
                 match ops_writer {
                     None => (),
                     Some(ref mut writer) => {
                         flush_ops_file_and_writer(
                             &tmp_ops_filename,
-                            dumpdir.join(ops_name).as_path(),
+                            dumpdir.join(format!("{}.ops", prefix)).as_path(),
                             writer,
                             curr_dump_n_ops,
                             curr_dump_first_seqno,
