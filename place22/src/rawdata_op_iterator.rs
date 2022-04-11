@@ -4,7 +4,7 @@ use crate::place_op::PlaceOp;
 use std::cmp::{max, min};
 use std::iter::Iterator;
 
-use std::io::{BufRead, Read};
+use std::io::BufRead;
 use std::path::Path;
 
 use std::fs::File;
@@ -16,7 +16,7 @@ use chrono::{DateTime, NaiveDateTime, Utc};
 
 pub struct RawDataFileOpIterator {
     reader: BufReader<File>,
-    uid_to_int: HashMap<String, u64>,
+    userhash_to_int: HashMap<String, u64>,
     first_op_time: u64,
     palette_arr: Vec<u8>,
 }
@@ -35,15 +35,15 @@ impl Iterator for RawDataFileOpIterator {
                 }
                 let parts = csv_line_to_op_parts(&buf);
                 let old_palette_i = self.palette_arr[rowcol_to_idx(parts.r0, parts.c0)];
-                let uid: u64 = match self.uid_to_int.get(parts.user_id.as_str()) {
+                let uid: u64 = match self.userhash_to_int.get(parts.user_id.as_str()) {
                     Some(val) => val.clone(),
                     None => {
-                        let new_assoc = self.uid_to_int.len() as u64;
-                        self.uid_to_int.insert(parts.user_id.clone(), new_assoc);
+                        let new_assoc = self.userhash_to_int.len() as u64;
+                        self.userhash_to_int.insert(parts.user_id, new_assoc);
                         new_assoc
                     }
                 };
-                update_palette_arr_for_op_parts(&parts, &mut self.palette_arr);
+                update_palette_arr(parts.palette_i, parts.c0, parts.r0, parts.censor_corner, &mut self.palette_arr);
                 match parts.censor_corner.unwrap_or((0, 0)) {
                     (c1, r1) => {
                         return Some(PlaceOp {
@@ -76,42 +76,36 @@ struct op_parts {
 fn csv_line_to_op_parts(line: &str) -> op_parts {
     let parts: Vec<&str> = line.split(",").collect();
 
+
+    let c0 = u16::from_str_radix(parts[3].trim_start_matches("\""), 10).expect("flub");
+    let (r0, corner_coords) = match parts.len() {
+        5 => {
+            (u16::from_str_radix(parts[4].trim_end_matches("\"\n"), 10).expect("aluba"), None)
+        }
+        7 => {
+            (
+                u16::from_str_radix(parts[4], 10).expect("duba"),
+                Some((
+                    u16::from_str_radix(parts[5], 10).unwrap(),
+                    u16::from_str_radix(parts[6].trim_end_matches("\"\n"), 10).unwrap(),
+                ))
+            )
+        }
+        x => {
+            panic!("Error: The line {} splits into to {} parts != 5 or 7", line, x);
+        }
+    };
+
     let naive_datetime =
-        NaiveDateTime::parse_from_str(parts[0].trim_end_matches("-07"), "%Y-%m-%d %H:%M:%S%.f")
-            .expect(&format!(
-                "Failed to parse time string {}, {}DONEZO {}",
-                parts[0],
-                line,
-                line.len()
-            ));
+        NaiveDateTime::parse_from_str(parts[0].trim_end_matches("-07"), "%Y-%m-%d %H:%M:%S%.f").unwrap();
     let datetime = DateTime::<chrono::Utc>::from_utc(naive_datetime, chrono::Utc);
 
     let palette_i = PALETTE
         .iter()
         .position(|&e| {
-            e == u32::from_str_radix(parts[2].trim_start_matches("#"), 16).expect("problem")
+            e == u32::from_str_radix(parts[2].trim_start_matches("#"), 16).unwrap()
         })
         .unwrap();
-
-    let c0 = u16::from_str_radix(parts[3].trim_start_matches("\""), 10).expect("flub");
-    let mut r0 = 0;
-    let mut offs: Option<(u16, u16)> = None;
-
-    match parts.len() {
-        5 => {
-            r0 = u16::from_str_radix(parts[4].trim_end_matches("\"\n"), 10).expect("aluba");
-        }
-        7 => {
-            r0 = u16::from_str_radix(parts[4], 10).expect("duba");
-            offs = Some((
-                u16::from_str_radix(parts[5], 10).expect("wubba"),
-                u16::from_str_radix(parts[6].trim_end_matches("\"\n"), 10).expect("GRUUUUB"),
-            ))
-        }
-        _ => {
-            panic!("Something went seriously wrong parsing")
-        }
-    }
 
     return op_parts {
         datetime,
@@ -119,7 +113,7 @@ fn csv_line_to_op_parts(line: &str) -> op_parts {
         palette_i: palette_i as u8,
         c0,
         r0,
-        censor_corner: offs,
+        censor_corner: corner_coords,
     };
 }
 
@@ -127,15 +121,15 @@ fn rowcol_to_idx(row: u16, col: u16) -> usize {
     return (EDGE_SIZE * (row as usize) + (col as usize)) as usize;
 }
 
-fn update_palette_arr_for_op_parts(parts: &op_parts, palette_arr: &mut Vec<u8>) {
-    match parts.censor_corner {
+fn update_palette_arr(palette_i: u8, c0: u16, r0: u16, censor_corner: Option<(u16, u16)>, palette_arr: &mut Vec<u8>) {
+    match censor_corner {
         None => {
-            palette_arr[rowcol_to_idx(parts.r0, parts.c0)] = parts.palette_i;
+            palette_arr[rowcol_to_idx(r0, c0)] = palette_i;
         }
         Some((r1, c1)) => {
-            for r in min(parts.r0, r1)..max(parts.r0, r1) + 1 {
-                for c in min(parts.c0, c1)..max(parts.c0, c1) + 1 {
-                    palette_arr[rowcol_to_idx(r, c)] = parts.palette_i;
+            for r in min(r0, r1)..max(r0, r1) + 1 {
+                for c in min(c0, c1)..max(c0, c1) + 1 {
+                    palette_arr[rowcol_to_idx(r, c)] = palette_i;
                 }
             }
         }
@@ -144,7 +138,7 @@ fn update_palette_arr_for_op_parts(parts: &op_parts, palette_arr: &mut Vec<u8>) 
 
 pub fn rawdata_op_stream_from_file(
     path: &Path,
-) -> std::iter::Chain<std::iter::Once<PlaceOp>, RawDataFileOpIterator> {
+) -> Box<dyn std::iter::Iterator<Item = PlaceOp>> {
     let f = File::open(path).expect("Could not open file for reading");
     let mut buf_reader = BufReader::new(f);
 
@@ -162,10 +156,10 @@ pub fn rawdata_op_stream_from_file(
 
     let start_op_parts = csv_line_to_op_parts(&buf);
     let mut palette_arr = vec![WHITE_PALETTE_I; IMAGE_SIZE];
-    let mut u_id_to_int: HashMap<String, u64> = HashMap::new();
+    let mut userhash_to_int: HashMap<String, u64> = HashMap::new();
 
-    u_id_to_int.insert(start_op_parts.user_id.clone(), 0);
-    update_palette_arr_for_op_parts(&start_op_parts, &mut palette_arr);
+    userhash_to_int.insert(start_op_parts.user_id, 0);
+    update_palette_arr(start_op_parts.palette_i, start_op_parts.c0, start_op_parts.r0, start_op_parts.censor_corner, &mut palette_arr);
 
     let first_op = PlaceOp {
         toff: 0,
@@ -183,9 +177,9 @@ pub fn rawdata_op_stream_from_file(
 
     let rest = RawDataFileOpIterator {
         reader: buf_reader,
-        uid_to_int: u_id_to_int,
+        userhash_to_int,
         first_op_time: start_unix_time,
         palette_arr,
     };
-    return std::iter::once(first_op).chain(rest);
+    return Box::new(std::iter::once(first_op).chain(rest));
 }

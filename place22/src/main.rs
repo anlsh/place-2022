@@ -94,9 +94,9 @@ fn main() {
         ))));
     } else if args.csv.is_some() {
         // panic!("Ok, unfortunately the csv arg is unimplemented for now");
-        op_iterator = Some(Box::new(rawdata_op_stream_from_file(Path::new(
+        op_iterator = Some(rawdata_op_stream_from_file(Path::new(
             &args.csv.unwrap(),
-        ))));
+        )));
     }
 
     match op_iterator {
